@@ -6,6 +6,7 @@
 #include <WiFi.h>
 #include <time.h>
 #include <HTTPClient.h>
+#include "mfactoryfont.h"  // Custom font
 
 #define HARDWARE_TYPE MD_MAX72XX::FC16_HW
 #define MAX_DEVICES 4
@@ -66,11 +67,12 @@ void setup() {
   }
 
   ledMatrix.begin();
-  ledMatrix.setIntensity(5);
+  ledMatrix.setIntensity(15);
   ledMatrix.setTextAlignment(PA_CENTER);
+  ledMatrix.setFont(mFactory);
 
   // Start with initial time
-  strftime(currentTimeStr, sizeof(currentTimeStr), "%H:%M", &timeinfo);
+  strftime(currentTimeStr, sizeof(currentTimeStr), "%I:%M %p", &timeinfo);
   ledMatrix.displayText(currentTimeStr, PA_CENTER, 100, 0, PA_SCROLL_RIGHT, PA_NO_EFFECT);
   ledMatrix.displayAnimate();
   

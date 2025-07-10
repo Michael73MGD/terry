@@ -5,6 +5,7 @@
 #include <MD_MAX72xx.h>
 #include <WiFi.h>
 #include <time.h>
+#include <HTTPClient.h>
 #include "mfactoryfont.h"  // Custom font
 
 #define HARDWARE_TYPE MD_MAX72XX::FC16_HW
@@ -28,6 +29,12 @@ enum State {
 };
 
 State state = SHOWING_TIME;
+
+// const char* location = "Somerville";
+const char* endpoint = "https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/Boston?unitGroup=us&elements=datetime%2CdatetimeEpoch%2Cname%2Clatitude%2Clongitude%2Ctempmax%2Ctempmin%2Ctemp%2Cfeelslikemax%2Cfeelslikemin%2Cfeelslike%2Cprecip%2Cprecipprob%2Cprecipcover%2Cpreciptype%2Csnow%2Csnowdepth%2Cwindgust%2Cwindspeed%2Csunrise%2Csunset%2Cmoonphase%2Cconditions%2Cdescription%2Cicon&include=days%2Chours&key=2WKEX8NVUHXNVV7SYHEX3EQBL&contentType=json";
+const unsigned long interval = 5 * 60 * 1000;  // 5 minutes
+unsigned long lastRequestTime = 0;
+
 
 void setup() {
   Serial.begin(115200);
@@ -68,9 +75,18 @@ void setup() {
   strftime(currentTimeStr, sizeof(currentTimeStr), "%I:%M %p", &timeinfo);
   ledMatrix.displayText(currentTimeStr, PA_CENTER, 100, 0, PA_SCROLL_RIGHT, PA_NO_EFFECT);
   ledMatrix.displayAnimate();
+  
+  // Make first request immediately
+  makeApiRequest();
+  lastRequestTime = millis();
 }
 
 void loop() {
+  if (millis() - lastRequestTime >= interval) {
+    makeApiRequest();
+    lastRequestTime = millis();
+  }
+
   struct tm timeinfo;
   if (!getLocalTime(&timeinfo)) return;
 
@@ -104,5 +120,27 @@ void loop() {
         state = SHOWING_TIME;
       }
       break;
+  }
+}
+
+void makeApiRequest() {
+  if ((WiFi.status() == WL_CONNECTED)) {
+    HTTPClient http;
+    http.begin(endpoint);
+
+    int httpCode = http.GET(); // Send the request
+
+    if (httpCode > 0) {
+      Serial.printf("✅ HTTP %d\n", httpCode);
+      String payload = http.getString();
+      Serial.println("📥 Response:");
+      Serial.println(payload);
+    } else {
+      Serial.printf("❌ HTTP GET failed, error: %s\n", http.errorToString(httpCode).c_str());
+    }
+
+    http.end(); // Free resources
+  } else {
+    Serial.println("⚠️ Not connected to WiFi");
   }
 }

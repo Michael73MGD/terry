@@ -1,6 +1,33 @@
 #include <WiFi.h>
 #include <WiFiManager.h> // https://github.com/tzapu/WiFiManager
 
+#include <MD_Parola.h>
+#include <MD_MAX72xx.h>
+#include <WiFi.h>
+#include <time.h>
+
+#define HARDWARE_TYPE MD_MAX72XX::FC16_HW
+#define MAX_DEVICES 4
+#define CS_PIN 17
+
+const char* ntpServer = "pool.ntp.org";
+const long gmtOffset_sec = -5 * 3600;
+const int daylightOffset_sec = 3600;
+
+MD_Parola ledMatrix = MD_Parola(HARDWARE_TYPE, CS_PIN, MAX_DEVICES);
+
+char currentTimeStr[6] = "-----";
+char nextTimeStr[6] = "-----";
+int lastMinute = -1;
+
+enum State {
+  SHOWING_TIME,
+  SCROLL_OUT,
+  SCROLL_IN
+};
+
+State state = SHOWING_TIME;
+
 void setup() {
   Serial.begin(115200);
   delay(1000);

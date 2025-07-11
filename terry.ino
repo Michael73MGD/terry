@@ -33,7 +33,9 @@ State state = SHOWING_TIME;
 
 // const char* location = "Somerville";
 // const char* endpoint = "https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/boston/next24hours?unitGroup=us&elements=datetime%2Ctempmax%2Ctempmin%2Ctemp%2Cfeelslikemax%2Cfeelslikemin%2Cfeelslike%2Chumidity%2Cprecip%2Cpreciptype%2Cwindspeedmean%2Cmoonphase%2Cconditions%2Cdescription%2Cicon&key=2WKEX8NVUHXNVV7SYHEX3EQBL&contentType=json";
-const char* endpoint = "https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/boston/today?unitGroup=us&elements=datetime%2Ctempmax%2Ctempmin%2Ctemp%2Cfeelslikemax%2Cfeelslikemin%2Cfeelslike%2Chumidity%2Cprecip%2Cpreciptype%2Cwindspeedmean%2Cmoonphase%2Cconditions%2Cdescription%2Cicon&include=days&key=2WKEX8NVUHXNVV7SYHEX3EQBL&contentType=json";
+// const char* endpoint = "https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/boston/today?unitGroup=us&elements=datetime%2Ctempmax%2Ctempmin%2Ctemp%2Cfeelslikemax%2Cfeelslikemin%2Cfeelslike%2Chumidity%2Cprecip%2Cpreciptype%2Cwindspeedmean%2Cmoonphase%2Cconditions%2Cdescription%2Cicon&include=days&key=2WKEX8NVUHXNVV7SYHEX3EQBL&contentType=json";
+
+const char* endpoint = "https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/boston/today?unitGroup=us&include=current&key=2WKEX8NVUHXNVV7SYHEX3EQBL&contentType=json";
 const unsigned long interval = 15 * 60 * 1000;  // 15 minutes
 unsigned long lastRequestTime = 0;
 
@@ -139,7 +141,11 @@ void makeApiRequest() {
       Serial.println(input);
 
       // Use https://arduinojson.org/v6/assistant for this section
-      DynamicJsonDocument doc(16384);
+      // Stream& input;
+
+      // Stream& input;
+
+      DynamicJsonDocument doc(4096);
 
       DeserializationError error = deserializeJson(doc, input);
 
@@ -156,79 +162,94 @@ void makeApiRequest() {
       const char* address = doc["address"]; // "boston"
       const char* timezone = doc["timezone"]; // "America/New_York"
       int tzoffset = doc["tzoffset"]; // -4
-      const char* description = doc["description"]; // "Cooling down with no rain expected."
 
-      for (JsonObject day : doc["days"].as<JsonArray>()) {
+      /* This data pertains to the entire day- ignore it
+      JsonObject days_0 = doc["days"][0];
+      const char* days_0_datetime = days_0["datetime"]; // "2025-07-11"
+      long days_0_datetimeEpoch = days_0["datetimeEpoch"]; // 1752206400
+      int days_0_tempmax = days_0["tempmax"]; // 74
+      float days_0_tempmin = days_0["tempmin"]; // 63.1
+      float days_0_temp = days_0["temp"]; // 68.5
+      int days_0_feelslikemax = days_0["feelslikemax"]; // 74
+      float days_0_feelslikemin = days_0["feelslikemin"]; // 63.1
+      float days_0_feelslike = days_0["feelslike"]; // 68.5
+      float days_0_dew = days_0["dew"]; // 64.6
+      int days_0_humidity = days_0["humidity"]; // 88
+      int days_0_precip = days_0["precip"]; // 0
+      int days_0_precipprob = days_0["precipprob"]; // 7
+      int days_0_precipcover = days_0["precipcover"]; // 0
+      // days_0["preciptype"] is null
+      int days_0_snow = days_0["snow"]; // 0
+      int days_0_snowdepth = days_0["snowdepth"]; // 0
+      float days_0_windgust = days_0["windgust"]; // 13.9
+      float days_0_windspeed = days_0["windspeed"]; // 12.5
+      float days_0_winddir = days_0["winddir"]; // 107.2
+      float days_0_pressure = days_0["pressure"]; // 1017.2
+      int days_0_cloudcover = days_0["cloudcover"]; // 89
+      float days_0_visibility = days_0["visibility"]; // 7.4
+      float days_0_solarradiation = days_0["solarradiation"]; // 430.4
+      float days_0_solarenergy = days_0["solarenergy"]; // 36.9
+      int days_0_uvindex = days_0["uvindex"]; // 8
+      int days_0_severerisk = days_0["severerisk"]; // 10
+      const char* days_0_sunrise = days_0["sunrise"]; // "05:17:58"
+      long days_0_sunriseEpoch = days_0["sunriseEpoch"]; // 1752225478
+      const char* days_0_sunset = days_0["sunset"]; // "20:21:25"
+      long days_0_sunsetEpoch = days_0["sunsetEpoch"]; // 1752279685
+      float days_0_moonphase = days_0["moonphase"]; // 0.53
+      const char* days_0_conditions = days_0["conditions"]; // "Partially cloudy"
+      const char* days_0_description = days_0["description"]; // "Partly cloudy throughout the day."
+      const char* days_0_icon = days_0["icon"]; // "partly-cloudy-day"
 
-        const char* day_datetime = day["datetime"]; // "2025-07-10", "2025-07-11"
-        float day_tempmax = day["tempmax"]; // 67.9, 72.1
-        float day_tempmin = day["tempmin"]; // 65.1, 65
-        float day_temp = day["temp"]; // 66.5, 68.5
-        float day_feelslikemax = day["feelslikemax"]; // 67.9, 72.1
-        float day_feelslikemin = day["feelslikemin"]; // 65.1, 65
-        float day_feelslike = day["feelslike"]; // 66.5, 68.5
-        float day_humidity = day["humidity"]; // 94.9, 87.6
-        float day_precip = day["precip"]; // 1.319, 0
+      JsonArray days_0_stations = days_0["stations"];
+      const char* days_0_stations_0 = days_0_stations[0]; // "KOWD"
+      const char* days_0_stations_1 = days_0_stations[1]; // "AV085"
+      const char* days_0_stations_2 = days_0_stations[2]; // "KBED"
+      const char* days_0_stations_3 = days_0_stations[3]; // "0518W"
+      const char* days_0_stations_4 = days_0_stations[4]; // "KBOS"
 
-        const char* day_preciptype_0 = day["preciptype"][0]; // "rain", nullptr
-
-        float day_windspeedmean = day["windspeedmean"]; // 7.9, 5.2
-        float day_moonphase = day["moonphase"]; // 0.5, 0.53
-        const char* day_conditions = day["conditions"]; // "Rain, Overcast", "Partially cloudy"
-        const char* day_description = day["description"]; // "Cloudy skies throughout the day with a chance of ...
-        const char* day_icon = day["icon"]; // "rain", "partly-cloudy-day"
-
-        
-        Serial.print("day_temp: ");
-        Serial.println(day_temp);
-        Serial.print("day_feelslike: ");
-        Serial.println(day_feelslike);
-        Serial.print("day_humidity: ");
-        Serial.println(day_humidity);
-        Serial.print("day_icon: ");
-        Serial.println(day_icon);
-        Serial.print("day_description: ");
-        Serial.println(day_description);
-
-        for (JsonObject day_hour : day["hours"].as<JsonArray>()) {
-
-          const char* day_hour_datetime = day_hour["datetime"]; // "00:00:00", "01:00:00", "02:00:00", "03:00:00", ...
-          float day_hour_temp = day_hour["temp"]; // 66.8, 66, 66, 66.8, 66.9, 66, 66, 66, 66, 66, 66, 65.1, 65.1, ...
-          float day_hour_feelslike = day_hour["feelslike"]; // 66.8, 66, 66, 66.8, 66.9, 66, 66, 66, 66, 66, 66, ...
-          float day_hour_humidity = day_hour["humidity"]; // 93.89, 96.76, 96.78, 96.82, 96.82, 99.79, 99.78, ...
-          float day_hour_precip = day_hour["precip"]; // 0, 0, 0, 0, 0.001, 0.07, 0.371, 0.034, 0.321, 0.253, ...
-          // day_hour["preciptype"] is null
-          const char* day_hour_conditions = day_hour["conditions"]; // "Overcast", "Overcast", "Overcast", ...
-          const char* day_hour_icon = day_hour["icon"]; // "cloudy", "cloudy", "cloudy", "cloudy", "rain", "rain", ...
-
-        }
-
-      }
-
-      JsonObject alerts_0 = doc["alerts"][0];
-      const char* alerts_0_event = alerts_0["event"]; // "Flood Watch"
-      const char* alerts_0_headline = alerts_0["headline"]; // "Flood Watch issued July 10 at 8:53AM EDT until ...
-      const char* alerts_0_ends = alerts_0["ends"]; // "2025-07-10T16:00:00"
-      long alerts_0_endsEpoch = alerts_0["endsEpoch"]; // 1752177600
-      const char* alerts_0_onset = alerts_0["onset"]; // "2025-07-10T08:53:00"
-      long alerts_0_onsetEpoch = alerts_0["onsetEpoch"]; // 1752151980
-      const char* alerts_0_id = alerts_0["id"];
-      const char* alerts_0_language = alerts_0["language"]; // "en"
-      const char* alerts_0_link = alerts_0["link"]; // "http://www.weather.gov"
-      const char* alerts_0_description = alerts_0["description"]; // "* WHAT...Flooding caused by excessive ...
+      const char* days_0_source = days_0["source"]; // "comb"
+      */
 
       JsonObject currentConditions = doc["currentConditions"];
-      const char* currentConditions_datetime = currentConditions["datetime"]; // "13:50:00"
-      float currentConditions_temp = currentConditions["temp"]; // 64.1
-      float currentConditions_feelslike = currentConditions["feelslike"]; // 64.1
-      float currentConditions_humidity = currentConditions["humidity"]; // 95.7
-      float currentConditions_precip = currentConditions["precip"]; // 0.001
+      const char* currentConditions_datetime = currentConditions["datetime"]; // "17:50:00"
+      long currentConditions_datetimeEpoch = currentConditions["datetimeEpoch"]; // 1752270600
+      float currentConditions_temp = currentConditions["temp"]; // 73.7
+      float currentConditions_feelslike = currentConditions["feelslike"]; // 73.7
+      float currentConditions_humidity = currentConditions["humidity"]; // 77.6
+      float currentConditions_dew = currentConditions["dew"]; // 66.2
+      int currentConditions_precip = currentConditions["precip"]; // 0
+      int currentConditions_precipprob = currentConditions["precipprob"]; // 0
+      int currentConditions_snow = currentConditions["snow"]; // 0
+      int currentConditions_snowdepth = currentConditions["snowdepth"]; // 0
+      // currentConditions["preciptype"] is null
+      int currentConditions_windgust = currentConditions["windgust"]; // 0
+      float currentConditions_windspeed = currentConditions["windspeed"]; // 5.1
+      int currentConditions_winddir = currentConditions["winddir"]; // 138
+      int currentConditions_pressure = currentConditions["pressure"]; // 1017
+      float currentConditions_visibility = currentConditions["visibility"]; // 9.9
+      int currentConditions_cloudcover = currentConditions["cloudcover"]; // 50
+      int currentConditions_solarradiation = currentConditions["solarradiation"]; // 291
+      int currentConditions_solarenergy = currentConditions["solarenergy"]; // 1
+      int currentConditions_uvindex = currentConditions["uvindex"]; // 3
+      const char* currentConditions_conditions = currentConditions["conditions"]; // "Partially cloudy"
+      const char* currentConditions_icon = currentConditions["icon"]; // "partly-cloudy-day"
 
-      const char* currentConditions_preciptype_0 = currentConditions["preciptype"][0]; // "rain"
+      JsonArray currentConditions_stations = currentConditions["stations"];
+      const char* currentConditions_stations_0 = currentConditions_stations[0]; // "BHBM3"
+      const char* currentConditions_stations_1 = currentConditions_stations[1]; // "KBOS"
+      const char* currentConditions_stations_2 = currentConditions_stations[2]; // "E2727"
 
-      const char* currentConditions_conditions = currentConditions["conditions"]; // "Rain, Partially cloudy"
-      const char* currentConditions_icon = currentConditions["icon"]; // "rain"
-      float currentConditions_moonphase = currentConditions["moonphase"]; // 0.5
+      const char* currentConditions_source = currentConditions["source"]; // "obs"
+      const char* currentConditions_sunrise = currentConditions["sunrise"]; // "05:17:58"
+      long currentConditions_sunriseEpoch = currentConditions["sunriseEpoch"]; // 1752225478
+      const char* currentConditions_sunset = currentConditions["sunset"]; // "20:21:25"
+      long currentConditions_sunsetEpoch = currentConditions["sunsetEpoch"]; // 1752279685
+      float currentConditions_moonphase = currentConditions["moonphase"]; // 0.53
+
+      Serial.println(currentConditions_conditions);
+      Serial.println(currentConditions_temp);
+
+
 
     } else {
       Serial.printf("❌ HTTP GET failed, error: %s\n", http.errorToString(httpCode).c_str());

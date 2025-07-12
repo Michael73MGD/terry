@@ -44,6 +44,17 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
 
+  ledMatrix.begin();
+  ledMatrix.setIntensity(15);
+  ledMatrix.setTextAlignment(PA_CENTER);
+  
+  // Show startup message
+  ledMatrix.displayClear();
+  ledMatrix.displayScroll("Hi there! I'm Terry", PA_CENTER, PA_SCROLL_LEFT, 75);
+  while (!ledMatrix.displayAnimate()) {
+    // wait for scroll to finish
+  }
+
   // Create an instance of WiFiManager
   WiFiManager wm;
 
@@ -53,12 +64,20 @@ void setup() {
   // Automatically connect to saved WiFi or start config portal
   if (!wm.autoConnect("ESP32-Setup")) {
     Serial.println("⚠️ Failed to connect and hit timeout");
+    ledMatrix.displayScroll("Connect to ESP32 WiFi from your phone to setup. ", PA_CENTER, PA_SCROLL_LEFT, 75);
+    while (!ledMatrix.displayAnimate()) {
+      // wait for scroll to finish
+    }
     delay(3000);
     ESP.restart();
   }
 
   // If connected:
   Serial.println("✅ Connected to WiFi!");
+  ledMatrix.displayScroll("WiFi Connected!", PA_CENTER, PA_SCROLL_LEFT, 75);
+  while (!ledMatrix.displayAnimate()) {
+    // wait for scroll to finish
+  }
   Serial.print("🔗 IP Address: ");
   Serial.println(WiFi.localIP());
   
@@ -70,14 +89,13 @@ void setup() {
     delay(1000);
   }
 
-  ledMatrix.begin();
-  ledMatrix.setIntensity(15);
-  ledMatrix.setTextAlignment(PA_CENTER);
-  ledMatrix.setFont(mFactory);
-
-  // Start with initial time
+  // Set initial time string
   strftime(currentTimeStr, sizeof(currentTimeStr), "%I:%M %p", &timeinfo);
-  ledMatrix.displayText(currentTimeStr, PA_CENTER, 100, 0, PA_SCROLL_RIGHT, PA_NO_EFFECT);
+
+  // Set font for time
+  ledMatrix.setFont(mFactory);
+  ledMatrix.setTextAlignment(PA_LEFT);
+  ledMatrix.displayText(currentTimeStr, PA_LEFT, 100, 0, PA_SCROLL_LEFT, PA_NO_EFFECT);
   ledMatrix.displayAnimate();
   
   // Make first request immediately
@@ -95,6 +113,8 @@ void loop() {
   if (!getLocalTime(&timeinfo)) return;
 
   int currentMinute = timeinfo.tm_min;
+  // TODO Need a fix to make the first timestamp scroll in fromt the right, currently it starts by scrolling out then scrolling in again
+  // lastMinute = currentMinute;
 
   switch (state) {
     case SHOWING_TIME:
@@ -103,7 +123,9 @@ void loop() {
         strcpy(nextTimeStr, currentTimeStr); // Save old time
         lastMinute = currentMinute;
         state = SCROLL_OUT;
-        ledMatrix.displayText(currentTimeStr, PA_CENTER, 100, 0, PA_NO_EFFECT, PA_SCROLL_LEFT);
+
+        ledMatrix.setTextAlignment(PA_LEFT);
+        ledMatrix.displayText(currentTimeStr, PA_LEFT, 100, 0, PA_NO_EFFECT, PA_SCROLL_LEFT);
         ledMatrix.displayAnimate();
       }
       break;
@@ -113,14 +135,14 @@ void loop() {
         // Old time has scrolled out → scroll new time in
         strftime(currentTimeStr, sizeof(currentTimeStr), "%I:%M %p", &timeinfo);
         state = SCROLL_IN;
-        ledMatrix.displayText(currentTimeStr, PA_CENTER, 100, 0, PA_SCROLL_LEFT, PA_NO_EFFECT);
+        ledMatrix.setTextAlignment(PA_LEFT);
+        ledMatrix.displayText(currentTimeStr, PA_LEFT, 100, 0, PA_SCROLL_LEFT, PA_NO_EFFECT);
         ledMatrix.displayAnimate();
       }
       break;
 
     case SCROLL_IN:
       if (ledMatrix.displayAnimate()) {
-        // New time is now centered and showing
         state = SHOWING_TIME;
       }
       break;

@@ -1,6 +1,5 @@
 #include <WiFi.h>
 #include <WiFiManager.h> // https://github.com/tzapu/WiFiManager
-
 #include <MD_Parola.h>
 #include <MD_MAX72xx.h>
 #include <WiFi.h>
@@ -19,9 +18,10 @@ const int daylightOffset_sec = 3600;
 
 MD_Parola ledMatrix = MD_Parola(HARDWARE_TYPE, CS_PIN, MAX_DEVICES);
 
-char currentTimeStr[6] = "-----";
-char nextTimeStr[6] = "-----";
+char currentTimeStr[24] = "";
+char nextTimeStr[24] = "";
 int lastMinute = -1;
+float temperature = NAN;
 
 enum State {
   SHOWING_TIME,
@@ -36,9 +36,8 @@ State state = SHOWING_TIME;
 // const char* endpoint = "https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/boston/today?unitGroup=us&elements=datetime%2Ctempmax%2Ctempmin%2Ctemp%2Cfeelslikemax%2Cfeelslikemin%2Cfeelslike%2Chumidity%2Cprecip%2Cpreciptype%2Cwindspeedmean%2Cmoonphase%2Cconditions%2Cdescription%2Cicon&include=days&key=2WKEX8NVUHXNVV7SYHEX3EQBL&contentType=json";
 
 const char* endpoint = "https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/boston/today?unitGroup=us&include=current&key=2WKEX8NVUHXNVV7SYHEX3EQBL&contentType=json";
-const unsigned long interval = 15 * 60 * 1000;  // 15 minutes
+const unsigned long interval = 15 * 60 * 1000;  // 15 minute interval for updating temperature
 unsigned long lastRequestTime = 0;
-
 
 void setup() {
   Serial.begin(115200);
@@ -50,7 +49,10 @@ void setup() {
   
   // Show startup message
   ledMatrix.displayClear();
+
+  // Welcome message. Comment out to save time when testing
   ledMatrix.displayScroll("Hi there! I'm Terry", PA_CENTER, PA_SCROLL_LEFT, 75);
+  
   while (!ledMatrix.displayAnimate()) {
     // wait for scroll to finish
   }
@@ -83,29 +85,24 @@ void setup() {
   
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 
-  struct tm timeinfo;
-  while (!getLocalTime(&timeinfo)) {
-    Serial.println("Waiting for NTP time...");
-    delay(1000);
-  }
-
-  // Set initial time string
-  strftime(currentTimeStr, sizeof(currentTimeStr), "%I:%M %p", &timeinfo);
-
   // Set font for time
   ledMatrix.setFont(mFactory);
-  ledMatrix.setTextAlignment(PA_LEFT);
-  ledMatrix.displayText(currentTimeStr, PA_LEFT, 100, 0, PA_SCROLL_LEFT, PA_NO_EFFECT);
-  ledMatrix.displayAnimate();
   
   // Make first request immediately
-  makeApiRequest();
-  lastRequestTime = millis();
+  temperature = get_current_temperature();
+  Serial.printf("Current temperature: %.1f°F\n", temperature);
+  // makeApiRequest();
+  lastRequestTime = 0;
 }
+
+
+
 
 void loop() {
   if (millis() - lastRequestTime >= interval) {
-    makeApiRequest();
+    // If it's been longer than interval, grab the current temperature
+    temperature = get_current_temperature();
+    Serial.printf("Updating temperature: %.1f°F\n", temperature);
     lastRequestTime = millis();
   }
 
@@ -113,8 +110,6 @@ void loop() {
   if (!getLocalTime(&timeinfo)) return;
 
   int currentMinute = timeinfo.tm_min;
-  // TODO Need a fix to make the first timestamp scroll in fromt the right, currently it starts by scrolling out then scrolling in again
-  // lastMinute = currentMinute;
 
   switch (state) {
     case SHOWING_TIME:
@@ -133,7 +128,12 @@ void loop() {
     case SCROLL_OUT:
       if (ledMatrix.displayAnimate()) {
         // Old time has scrolled out → scroll new time in
-        strftime(currentTimeStr, sizeof(currentTimeStr), "%I:%M %p", &timeinfo);
+        char timeBuf[10];
+        strftime(timeBuf, sizeof(timeBuf), "%I:%M", &timeinfo);
+
+        // Use the temperature fetched at the start of loop() every interval
+        snprintf(currentTimeStr, sizeof(currentTimeStr), "%s %.0f°", timeBuf, temperature);
+
         state = SCROLL_IN;
         ledMatrix.setTextAlignment(PA_LEFT);
         ledMatrix.displayText(currentTimeStr, PA_LEFT, 100, 0, PA_SCROLL_LEFT, PA_NO_EFFECT);
@@ -146,6 +146,39 @@ void loop() {
         state = SHOWING_TIME;
       }
       break;
+  }
+}
+
+float get_current_temperature() {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("⚠️ Not connected to WiFi");
+    return NAN;
+  }
+
+  HTTPClient http;
+  http.begin(endpoint);
+  int httpCode = http.GET();
+
+  if (httpCode > 0) {
+    String input = http.getString();
+    DynamicJsonDocument doc(1024);
+    DeserializationError error = deserializeJson(doc, input);
+
+    if (error) {
+      Serial.print("deserializeJson() failed: ");
+      Serial.println(error.c_str());
+      http.end();
+      return NAN;
+    }
+
+    JsonObject currentConditions = doc["currentConditions"];
+    float temp = currentConditions["temp"]; // degrees F
+    http.end();
+    return temp;
+  } else {
+    Serial.printf("❌ HTTP GET failed, error: %s\n", http.errorToString(httpCode).c_str());
+    http.end();
+    return NAN;
   }
 }
 

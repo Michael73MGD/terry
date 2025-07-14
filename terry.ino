@@ -132,7 +132,7 @@ void loop() {
         strftime(timeBuf, sizeof(timeBuf), "%I:%M", &timeinfo);
 
         // Use the temperature fetched at the start of loop() every interval
-        snprintf(currentTimeStr, sizeof(currentTimeStr), "%s %.0f°", timeBuf, temperature);
+        snprintf(currentTimeStr, sizeof(currentTimeStr), "%s %.0f", timeBuf, temperature); // use ° at your own risk
 
         state = SCROLL_IN;
         ledMatrix.setTextAlignment(PA_LEFT);

@@ -76,7 +76,7 @@ void setup() {
 
   // If connected:
   Serial.println("✅ Connected to WiFi!");
-  ledMatrix.displayScroll("WiFi Connected!", PA_CENTER, PA_SCROLL_LEFT, 75);
+  ledMatrix.displayScroll("WiFi!", PA_CENTER, PA_SCROLL_LEFT, 75);
   while (!ledMatrix.displayAnimate()) {
     // wait for scroll to finish
   }
@@ -132,7 +132,7 @@ void loop() {
         strftime(timeBuf, sizeof(timeBuf), "%I:%M", &timeinfo);
 
         // Use the temperature fetched at the start of loop() every interval
-        snprintf(currentTimeStr, sizeof(currentTimeStr), "%s %.0f", timeBuf, temperature); // use ° at your own risk
+        snprintf(currentTimeStr, sizeof(currentTimeStr), "%s{%.0f", timeBuf, temperature); // use ° at your own risk
 
         state = SCROLL_IN;
         ledMatrix.setTextAlignment(PA_LEFT);

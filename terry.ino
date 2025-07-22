@@ -169,9 +169,9 @@ void setup() {
   
   // Make first temperature and rain request
   temperature = get_current_temperature();
-  Serial.printf("Current temperature: %.1f°F\n", temperature);
+  Serial.printf("\nCurrent temperature: %.1f°F\n", temperature);
   rainLikely = rain_likely();
-  Serial.printf("Rain likely: %s\n", rainLikely ? "Yes" : "No");
+  Serial.printf("\nRain likely: %s\n", rainLikely ? "Yes" : "No");
 
   lastRequestTime = 0;
 }
@@ -220,7 +220,7 @@ void loop() {
             snprintf(currentTimeStr, sizeof(currentTimeStr), "%s{%0.f", timeBuf, temperature);
         } else {
             // Show degrees symbol
-            snprintf(currentTimeStr, sizeof(currentTimeStr), "%s  %.0f°", timeBuf, temperature);
+            snprintf(currentTimeStr, sizeof(currentTimeStr), "%s  %.0f|", timeBuf, temperature);
         }
 
         state = SCROLL_IN;

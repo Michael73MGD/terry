@@ -12,7 +12,7 @@
 #define MAX_DEVICES 4
 #define CS_PIN 17
 
-// These parameters require setting manually
+// These parameters require setting manually. Get your weather api key here: https://www.visualcrossing.com/sign-up/
 char apiKey[64] = "";
 char zipCode[16] = "";
 // 

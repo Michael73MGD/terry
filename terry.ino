@@ -39,10 +39,10 @@ State state = SHOWING_TIME;
 const unsigned long interval = 15 * 60 * 1000;  // 15 minute interval for updating temperature
 unsigned long lastRequestTime = 0;
 
-// Returns true if there is >50% chance of rain in the next `hours_ahead` hours, false otherwise
-bool rain_likely(int hours_ahead = 12) {
+// Returns true if the precipitation probability for today is above 50%, false otherwise
+bool rain_likely() {
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("⚠️ Not connected to WiFi");
+    Serial.println("Not connected to WiFi");
     return false;
   }
 
@@ -69,21 +69,18 @@ bool rain_likely(int hours_ahead = 12) {
       return false;
     }
 
-    JsonArray hours = doc["hours"];
-    int count = 0;
-    for (JsonObject hour : hours) {
-      int precipprob = hour["precipprob"] | 0;
-      if (precipprob > 50) {
+    // Get daily precip probability
+    JsonArray days = doc["days"];
+    if (!days.isNull() && days.size() > 0) {
+      float dailyPrecipProb = days[0]["precipprob"] | 0.0;
+      Serial.print("Today's precip probability: ");
+      Serial.println(dailyPrecipProb);
+      // Use dailyPrecipProb as needed
+      if (dailyPrecipProb > 50.0) {
         http.end();
         return true;
       }
-      count++;
-      if (count >= hours_ahead) break;
     }
-    http.end();
-    return false;
-  } else {
-    Serial.printf("HTTP GET failed, error: %s\n", http.errorToString(httpCode).c_str());
     http.end();
     return false;
   }
@@ -91,7 +88,7 @@ bool rain_likely(int hours_ahead = 12) {
 
 float get_current_temperature() {
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("⚠️ Not connected to WiFi");
+    Serial.println("Not connected to WiFi");
     return NAN;
   }
 

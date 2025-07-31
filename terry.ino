@@ -12,17 +12,21 @@
 #define MAX_DEVICES 4
 #define CS_PIN 17
 
+// These parameters require setting manually. Get your weather api key here: https://www.visualcrossing.com/sign-up/
+char apiKey[64] = "";
+char zipCode[16] = "";
+// 
+
 const char* ntpServer = "pool.ntp.org";
 const long gmtOffset_sec = -5 * 3600;
 const int daylightOffset_sec = 3600;
-
-MD_Parola ledMatrix = MD_Parola(HARDWARE_TYPE, CS_PIN, MAX_DEVICES);
-
 char currentTimeStr[24] = "";
 char nextTimeStr[24] = "";
 int lastMinute = -1;
 float temperature = NAN;
 bool rainLikely = false;
+
+MD_Parola ledMatrix = MD_Parola(HARDWARE_TYPE, CS_PIN, MAX_DEVICES);
 
 enum State {
   SHOWING_TIME,
@@ -32,23 +36,23 @@ enum State {
 
 State state = SHOWING_TIME;
 
-// const char* location = "Somerville";
-// const char* endpoint = "https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/boston/next24hours?unitGroup=us&elements=datetime%2Ctempmax%2Ctempmin%2Ctemp%2Cfeelslikemax%2Cfeelslikemin%2Cfeelslike%2Chumidity%2Cprecip%2Cpreciptype%2Cwindspeedmean%2Cmoonphase%2Cconditions%2Cdescription%2Cicon&key=2WKEX8NVUHXNVV7SYHEX3EQBL&contentType=json";
-// const char* endpoint = "https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/boston/today?unitGroup=us&elements=datetime%2Ctempmax%2Ctempmin%2Ctemp%2Cfeelslikemax%2Cfeelslikemin%2Cfeelslike%2Chumidity%2Cprecip%2Cpreciptype%2Cwindspeedmean%2Cmoonphase%2Cconditions%2Cdescription%2Cicon&include=days&key=2WKEX8NVUHXNVV7SYHEX3EQBL&contentType=json";
-
-const char* endpoint = "https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/boston/today?unitGroup=us&include=current&key=2WKEX8NVUHXNVV7SYHEX3EQBL&contentType=json";
 const unsigned long interval = 15 * 60 * 1000;  // 15 minute interval for updating temperature
 unsigned long lastRequestTime = 0;
 
-// Returns true if there is >50% chance of rain in the next `hours_ahead` hours, false otherwise
-bool rain_likely(int hours_ahead = 12) {
+// Returns true if the precipitation probability for today is above 50%, false otherwise
+bool rain_likely() {
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("⚠️ Not connected to WiFi");
+    Serial.println("Not connected to WiFi");
     return false;
   }
 
-  // Use the same base endpoint, but request hourly data for today
-  String rain_endpoint = String("https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/boston/today?unitGroup=us&include=hours&key=2WKEX8NVUHXNVV7SYHEX3EQBL&contentType=json");
+  // Build rain endpoint using zipCode and apiKey
+  String rain_endpoint = String("https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/") +
+                         String(zipCode) +
+                         String("/today?unitGroup=us&include=hours&key=") +
+                         String(apiKey) +
+                         String("&contentType=json");
+
   HTTPClient http;
   http.begin(rain_endpoint);
   int httpCode = http.GET();
@@ -65,21 +69,18 @@ bool rain_likely(int hours_ahead = 12) {
       return false;
     }
 
-    JsonArray hours = doc["hours"];
-    int count = 0;
-    for (JsonObject hour : hours) {
-      int precipprob = hour["precipprob"] | 0;
-      if (precipprob > 50) {
+    // Get daily precip probability
+    JsonArray days = doc["days"];
+    if (!days.isNull() && days.size() > 0) {
+      float dailyPrecipProb = days[0]["precipprob"] | 0.0;
+      Serial.print("Today's precip probability: ");
+      Serial.println(dailyPrecipProb);
+      // Use dailyPrecipProb as needed
+      if (dailyPrecipProb > 50.0) {
         http.end();
         return true;
       }
-      count++;
-      if (count >= hours_ahead) break;
     }
-    http.end();
-    return false;
-  } else {
-    Serial.printf("❌ HTTP GET failed, error: %s\n", http.errorToString(httpCode).c_str());
     http.end();
     return false;
   }
@@ -87,12 +88,19 @@ bool rain_likely(int hours_ahead = 12) {
 
 float get_current_temperature() {
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("⚠️ Not connected to WiFi");
+    Serial.println("Not connected to WiFi");
     return NAN;
   }
 
+  // Build endpoint string using zipCode and apiKey
+  String temperature_endpoint = String("https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/") +
+             String(zipCode) +
+             String("/today?unitGroup=us&include=current&key=") +
+             String(apiKey) +
+             String("&contentType=json");
+  
   HTTPClient http;
-  http.begin(endpoint);
+  http.begin(temperature_endpoint); 
   int httpCode = http.GET();
 
   if (httpCode > 0) {
@@ -112,7 +120,7 @@ float get_current_temperature() {
     http.end();
     return temp;
   } else {
-    Serial.printf("❌ HTTP GET failed, error: %s\n", http.errorToString(httpCode).c_str());
+    Serial.printf("HTTP GET failed, error: %s\n", http.errorToString(httpCode).c_str());
     http.end();
     return NAN;
   }
@@ -131,21 +139,50 @@ void setup() {
 
   // Welcome message. Comment out to save time when testing
   ledMatrix.displayScroll("Hi there! I'm Terry", PA_CENTER, PA_SCROLL_LEFT, 75);
-  
   while (!ledMatrix.displayAnimate()) {
     // wait for scroll to finish
   }
 
+  ledMatrix.displayScroll("Connect to the ESP32 WiFi to setup. ", PA_CENTER, PA_SCROLL_LEFT, 75);
+
   // Create an instance of WiFiManager
   WiFiManager wm;
 
+  // TODO Need a way to save the API key and ZIP code to a file for persistence https://github.com/tzapu/WiFiManager/tree/master/examples/Parameters
+  // WiFiManagerParameter apiKeyHelp("<a href='https://www.visualcrossing.com/sign-up/' target='_blank'>Get your Visual Crossing API key here</a><br>");
+  // wm.addParameter(&apiKeyHelp);
+  // Add custom parameters for weather API key and ZIP code
+  // WiFiManagerParameter custom_api_key("api_key", "Weather API Key", "", 64);
+  // WiFiManagerParameter custom_zip("zip_code", "ZIP Code", "", 16);
+  // wm.addParameter(&custom_api_key);
+  // wm.addParameter(&custom_zip);
+
+  // set dark theme
+  wm.setClass("invert");
+
   // Optionally reset saved settings (uncomment to test captive portal again)
-  // wm.resetSettings();
+  // wm.resetSettings(); 
 
   // Automatically connect to saved WiFi or start config portal
   if (!wm.autoConnect("ESP32-Setup")) {
-    Serial.println("⚠️ Failed to connect and hit timeout");
-    ledMatrix.displayScroll("Connect to ESP32 WiFi from your phone to setup. ", PA_CENTER, PA_SCROLL_LEFT, 75);
+    Serial.println("Failed to connect and hit timeout");
+    ledMatrix.displayScroll("WiFi connection failed, try again. ", PA_CENTER, PA_SCROLL_LEFT, 75);
+    while (!ledMatrix.displayAnimate()) {
+      // wait for scroll to finish
+    }
+    delay(3000);
+    ESP.restart();
+  }
+
+  // After wm.autoConnect("ESP32-Setup")
+  // const char* savedApiKey = custom_api_key.getValue();
+  // const char* savedZipCode = custom_zip.getValue();
+
+  // Test API call 
+  float testTemp = get_current_temperature();
+  if (isnan(testTemp)) {
+    Serial.println("Weather API call failed. Please check your API key and ZIP code and try again.");
+    ledMatrix.displayScroll("Weather API failed! Check key/ZIP.", PA_CENTER, PA_SCROLL_LEFT, 75);
     while (!ledMatrix.displayAnimate()) {
       // wait for scroll to finish
     }
@@ -154,12 +191,12 @@ void setup() {
   }
 
   // If connected:
-  Serial.println("✅ Connected to WiFi!");
-  ledMatrix.displayScroll("WiFi!", PA_CENTER, PA_SCROLL_LEFT, 75);
+  Serial.println("Connected to WiFi!");
+  ledMatrix.displayScroll("Connections successful!", PA_CENTER, PA_SCROLL_LEFT, 75);
   while (!ledMatrix.displayAnimate()) {
     // wait for scroll to finish
   }
-  Serial.print("🔗 IP Address: ");
+  Serial.print("IP Address: ");
   Serial.println(WiFi.localIP());
   
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
@@ -168,7 +205,7 @@ void setup() {
   ledMatrix.setFont(mFactory);
   
   // Make first temperature and rain request
-  temperature = get_current_temperature();
+  temperature = testTemp;
   Serial.printf("\nCurrent temperature: %.1f°F\n", temperature);
   rainLikely = rain_likely();
   Serial.printf("\nRain likely: %s\n", rainLikely ? "Yes" : "No");

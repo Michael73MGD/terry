@@ -11,6 +11,8 @@ Terry uses an 8x32 matrix display to display helpful information such as the tim
 - Weather: Terry displays the temperature as well, pulled every 15 minutes from [Visual Crossing](https://www.visualcrossing.com/)
 - Precipitation: Terry displays an umbrella between the time and temperature if it is going to rain today. This will be expanded to other precipation types soon.
 
+https://github.com/user-attachments/assets/c92be0a5-e460-4a9d-a95f-e7ca676eac41
+
 # Setup
 - Wire your ESP32 to the LED matrix per the wiring diagram below (coming soon)
 - 3D print and assemble the case

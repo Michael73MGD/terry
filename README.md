@@ -1,10 +1,28 @@
 # Terry
 ESP32-based LED matrix display
 
-Terry uses a 8x32 matrix display to display helpful information such as the time, the weather, and more?
+Terry uses an 8x32 matrix display to display helpful information such as the time and temperature. 
+
+<img width="300" alt="Terry in action" src="https://github.com/user-attachments/assets/0847cd3d-cbce-43cd-8a81-87a1cbf4bf79" />
+
+# Feautures
+
+- Time: Terry tells the time extremely accurately using a WiFi connection to grab accurate NTP time. It updates every minute on the minute by sliding in the new time from the right. Time is in 12-hour format for now, 24 hour time will be optional.
+- Weather: Terry displays the temperature as well, pulled every 15 minutes from [Visual Crossing](https://www.visualcrossing.com/)
+- Precipitation: Terry displays an umbrella between the time and temperature if it is going to rain today. This will be expanded to other precipation types soon.
+
+# Setup
+- Wire your ESP32 to the LED matrix per the wiring diagram below (coming soon)
+- 3D print and assemble the case
+- Plug in the usb cable and flash the arduino file
+- Connect to Terry over a WiFi connection in order to enter your WiFi network information, API key, and zip code (you only need to do this once)
+- Enjoy
 
 # Contributing
 
 - Install Arduino IDE
 - Add ESP32 to boards manager: https://dl.espressif.com/dl/package_esp32_index.json
 - Add libraries: `ArduinoJson, MDParola, WiFiManager`
+- Get your weather [API key](https://www.visualcrossing.com/sign-up/) and zip code ready
+
+https://github.com/user-attachments/assets/c2c3426d-ec96-477e-add0-1d1e0bbbd54f

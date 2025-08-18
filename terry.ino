@@ -15,12 +15,8 @@
 #define MAX_DEVICES 4
 #define CS_PIN 17
 
-// These parameters require setting manually. Get your weather api key here: https://www.visualcrossing.com/sign-up/
-// char apiKey[64] = "2WKEX8NVUHXNVV7SYHEX3EQBL";
-// char zipCode[16] = "02143";
 char api_key[50] = "enter api key";
 char zip_code[50] = "enter zip";
-//
 
 const char *ntpServer = "pool.ntp.org";
 const long gmtOffset_sec = -5 * 3600;
@@ -165,11 +161,7 @@ void setup()
 
   ledMatrix.displayScroll("Connect to the ESP32 WiFi to setup. ", PA_CENTER, PA_SCROLL_LEFT, 75);
 
-  WM_setup();
-
-  // After wm.autoConnect("ESP32-Setup")
-  // const char* savedApiKey = custom_api_key.getValue();
-  // const char* savedZipCode = custom_zip.getValue();
+  WM_setup(); // Handle WiFiManager setup and configuration from P1_WM.ino
 
   // Test API call
   float testTemp = get_current_temperature();
@@ -251,7 +243,12 @@ void loop()
       char timeBuf[10];
       strftime(timeBuf, sizeof(timeBuf), "%I:%M", &timeinfo);
 
-      if (rainLikely)
+      if (isnan(temperature))
+      {
+        // If temperature is NaN, just show time
+        snprintf(currentTimeStr, sizeof(currentTimeStr), "%s", timeBuf);
+      }
+      else if (rainLikely)
       {
         // Show umbrella, no degrees symbol
         snprintf(currentTimeStr, sizeof(currentTimeStr), "%s{%0.f", timeBuf, temperature);

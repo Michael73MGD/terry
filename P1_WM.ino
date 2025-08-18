@@ -1,16 +1,9 @@
 #define ESP_DRD_USE_SPIFFS true
-
-// Include Libraries
-// (moved to main file)
-
 #define JSON_CONFIG_FILE "/1st_config.json" // JSON configuration file
 
 bool shouldSaveConfig = false; // Flag for saving data
 
-bool dev_mode = true; // Flag to reset all WM settings to force portal.
-
-// Variables to hold data from custom textboxes
-// Moved to main file
+bool dev_mode = false; // Flag to reset all WM settings to force portal.
 
 WiFiManager wm; // Define WiFiManager Object
 
@@ -96,6 +89,9 @@ void WM_setup(){ // Change to true when testing to force configuration every tim
   wm.setAPCallback(configModeCallback); // Set callback that gets called when connecting to previous WiFi fails, and enters Access Point mode
 
   // Custom elements
+  WiFiManagerParameter api_key_note("<p>Get your weather API key here: <a href='https://www.visualcrossing.com/sign-up' target='_blank'>visualcrossing.com/sign-up</a></p>");
+  wm.addParameter(&api_key_note);
+
   WiFiManagerParameter api_key_box("api_key", "Enter your api_key", api_key, 50); // Text box (String) - 50 characters maximum
   WiFiManagerParameter zip_code_box("zip_code", "Enter your zip_code", zip_code, 50); // Text box (String) - 50 characters maximum
   
@@ -104,7 +100,7 @@ void WM_setup(){ // Change to true when testing to force configuration every tim
   wm.addParameter(&zip_code_box);
 
   if (forceConfig) {// Run if we need a configuration
-    if (!wm.autoConnect("MORSEMATE")){
+    if (!wm.autoConnect("Terry")){
       Serial.println("failed to connect and hit timeout");
       delay(3000); //reset and try again, or maybe put it to deep sleep
       ESP.restart();
@@ -112,7 +108,7 @@ void WM_setup(){ // Change to true when testing to force configuration every tim
     }
   }
   else{
-    if (!wm.autoConnect("MORSEMATE")){
+    if (!wm.autoConnect("Terry")){
       Serial.println("failed to connect and hit timeout");
       delay(3000); // if we still have not connected restart and try all over again
       ESP.restart();

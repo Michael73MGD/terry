@@ -1,7 +1,7 @@
 #define ESP_DRD_USE_SPIFFS true
 #define JSON_CONFIG_FILE "/1st_config.json" // JSON configuration file
 
-bool shouldSaveConfig = true; // Flag for saving data
+bool shouldSaveConfig = false; // Flag for saving data
 
 bool dev_mode = false; // Flag to reset all WM settings to force portal.
 

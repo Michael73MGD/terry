@@ -253,6 +253,11 @@ void loop()
         // Show umbrella, no degrees symbol
         snprintf(currentTimeStr, sizeof(currentTimeStr), "%s{%0.f", timeBuf, temperature);
       }
+      else if (temperature >= 100)
+      {
+        // If temperature is over 100 then it's 3 digits and takes up too much room for the degree symbol
+        snprintf(currentTimeStr, sizeof(currentTimeStr), "%s  %.0f", timeBuf, temperature);
+      }
       else
       {
         // Show degrees symbol

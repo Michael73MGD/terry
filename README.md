@@ -5,6 +5,8 @@ Terry uses an 8x32 matrix display to display helpful information such as the tim
 
 <img width="300" alt="Terry in action" src="https://github.com/user-attachments/assets/0847cd3d-cbce-43cd-8a81-87a1cbf4bf79" />
 
+https://github.com/user-attachments/assets/c2c3426d-ec96-477e-add0-1d1e0bbbd54f
+
 # Feautures
 
 - Time: Terry tells the time extremely accurately using a WiFi connection to grab accurate NTP time. It updates every minute on the minute by sliding in the new time from the right. Time is in 12-hour format for now, 24 hour time will be optional.
@@ -43,4 +45,4 @@ Terry uses an 8x32 matrix display to display helpful information such as the tim
 - Add libraries: `ArduinoJson, MDParola, WiFiManager`
 - For more assistance, follow the [ESP32 Software Installation Instructions](https://esp32io.com/tutorials/esp32-software-installation)
 
-https://github.com/user-attachments/assets/c2c3426d-ec96-477e-add0-1d1e0bbbd54f
+

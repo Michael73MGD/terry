@@ -85,8 +85,26 @@ inline bool readConfig(JsonVariantConst json, AppConfig &destination) {
 struct WeatherData {
   float temperature = NAN;
   float precipitationProbability = NAN;
+  // Maximum precipitation probability among today's hours that include snow.
+  float snowProbability = 0;
   char date[11] = "";
 };
+
+enum class PrecipitationIcon { None, Rain, Snow };
+
+inline PrecipitationIcon precipitationIcon(const WeatherData &weather) {
+  if (weather.snowProbability > 50) return PrecipitationIcon::Snow;
+  if (weather.precipitationProbability > 50) return PrecipitationIcon::Rain;
+  return PrecipitationIcon::None;
+}
+
+inline void configureWeatherFilter(JsonDocument &filter) {
+  filter["currentConditions"]["temp"] = true;
+  filter["days"][0]["precipprob"] = true;
+  filter["days"][0]["datetime"] = true;
+  filter["days"][0]["hours"][0]["precipprob"] = true;
+  filter["days"][0]["hours"][0]["preciptype"] = true;
+}
 
 inline bool readWeather(JsonVariantConst json, WeatherData &destination) {
   JsonVariantConst temp = json["currentConditions"]["temp"];
@@ -105,9 +123,33 @@ inline bool readWeather(JsonVariantConst json, WeatherData &destination) {
   if (!std::isfinite(temperature) || !std::isfinite(probability) ||
       temperature < -150 || temperature > 160 || probability < 0 || probability > 100) return false;
 
+  JsonArrayConst hours = json["days"][0]["hours"].as<JsonArrayConst>();
+  if (hours.isNull() || hours.size() == 0 || hours.size() > 25) return false;
+  float snowProbability = 0;
+  for (JsonVariantConst hour : hours) {
+    if (!hour.is<JsonObjectConst>()) return false;
+    JsonVariantConst types = hour["preciptype"];
+    if (!types.isNull() && !types.is<JsonArrayConst>()) return false;
+    bool includesSnow = false;
+    for (JsonVariantConst type : types.as<JsonArrayConst>()) {
+      const char *name = type.as<const char *>();
+      if (!name) return false;
+      if (strcmp(name, "snow") == 0) includesSnow = true;
+    }
+    JsonVariantConst chance = hour["precipprob"];
+    // Some observations have no probability. They cannot establish a strong
+    // chance of snow; never infer it from temperature or existing snow depth.
+    if (chance.isNull()) continue;
+    if (!chance.is<float>()) return false;
+    const float hourlyProbability = chance.as<float>();
+    if (!std::isfinite(hourlyProbability) || hourlyProbability < 0 || hourlyProbability > 100) return false;
+    if (includesSnow && hourlyProbability > snowProbability) snowProbability = hourlyProbability;
+  }
+
   WeatherData candidate;
   candidate.temperature = temperature;
   candidate.precipitationProbability = probability;
+  candidate.snowProbability = snowProbability;
   snprintf(candidate.date, sizeof(candidate.date), "%s", date);
   destination = candidate;
   return true;

@@ -11,7 +11,8 @@ https://github.com/user-attachments/assets/c2c3426d-ec96-477e-add0-1d1e0bbbd54f
 
 - Time: Terry synchronizes its clock over WiFi using NTP and slides in the new time each minute. Choose 12-hour or 24-hour time during setup; the choice is saved across restarts.
 - Weather: Terry displays the temperature as well, pulled every 15 minutes from [Visual Crossing](https://www.visualcrossing.com/)
-- Precipitation: Terry displays an umbrella between the time and temperature when today's precipitation probability exceeds 50%.
+- Precipitation: Terry shows the tested 5x8 snowflake when any hour today has precipitation probability **above 50%** and includes snow in its expected precipitation types. Otherwise, the existing umbrella appears when today's overall precipitation probability exceeds 50%. Snow takes priority on mixed rain/snow days; exactly 50% does not qualify. Icons are hidden once their forecast date has passed or weather is stale.
+- Snow detection uses hourly probability and type together, so a high rain chance and a low snow chance do not incorrectly select the snowflake. The [weather API](https://www.visualcrossing.com/resources/documentation/weather-data/weather-data-documentation/) reports daily precipitation chance as the maximum hourly chance. It does not provide a separate snow-only probability in these fields; Terry uses precipitation chance for hours forecast to include snow. It does not infer snowfall from cold temperatures or snow already on the ground.
 - Recovery: weather outages leave the clock running. Failed requests retry after 1, 2, 4, 8, then 15 minutes; rate limits wait at least 15 minutes. Last good weather is retained for up to one hour before being hidden.
 - Time zones: select a supported US time zone or UTC during setup. US daylight saving transitions are handled automatically.
 

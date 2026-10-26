@@ -69,7 +69,7 @@ void testWeather() {
   WeatherData weather;
   assert(!readWeather(json.as<JsonVariantConst>(), weather));
   assert(std::isnan(weather.temperature));
-  assert(!deserializeJson(json, R"({"currentConditions":{"temp":0},"days":[{"precipprob":0,"datetime":"2026-10-25"}]})"));
+  assert(!deserializeJson(json, R"({"currentConditions":{"temp":0},"days":[{"precipprob":0,"datetime":"2026-10-25","hours":[{"precipprob":0,"preciptype":null}]}]})"));
   assert(readWeather(json.as<JsonVariantConst>(), weather));
   assert(weather.temperature == 0); // Real zero differs from a missing value.
   json["currentConditions"]["temp"] = -14;
@@ -98,6 +98,91 @@ void testWeather() {
   assert(!readWeather(json.as<JsonVariantConst>(), weather));
   json["days"].clear();
   assert(!readWeather(json.as<JsonVariantConst>(), weather));
+}
+
+void testSnowForecast() {
+  JsonDocument json;
+  assert(!deserializeJson(json, R"({
+    "currentConditions":{"temp":28},
+    "days":[{"datetime":"2026-10-25","precipprob":95,"preciptype":["rain","snow"],
+      "hours":[{"precipprob":95,"preciptype":["rain"]},
+               {"precipprob":20,"preciptype":["snow"]}]}]
+  })"));
+  WeatherData weather;
+  assert(readWeather(json.as<JsonVariantConst>(), weather));
+  assert(weather.snowProbability == 20);
+  assert(precipitationIcon(weather) == PrecipitationIcon::Rain); // Heavy rain + unlikely snow is still rain.
+  json["days"][0]["hours"][1]["precipprob"] = 50;
+  assert(readWeather(json.as<JsonVariantConst>(), weather));
+  assert(precipitationIcon(weather) == PrecipitationIcon::Rain);
+  json["days"][0]["hours"][1]["precipprob"] = 50.1;
+  assert(readWeather(json.as<JsonVariantConst>(), weather));
+  assert(precipitationIcon(weather) == PrecipitationIcon::Snow); // Snow overrides the 95% rain hour.
+  json["days"][0]["hours"][1]["preciptype"][1] = "rain";
+  assert(readWeather(json.as<JsonVariantConst>(), weather));
+  assert(precipitationIcon(weather) == PrecipitationIcon::Snow); // Mixed precipitation within one hour too.
+
+  json["days"][0]["hours"][1]["precipprob"] = nullptr;
+  assert(readWeather(json.as<JsonVariantConst>(), weather));
+  assert(weather.snowProbability == 0); // Missing probability never invents a high snow chance.
+  assert(precipitationIcon(weather) == PrecipitationIcon::Rain);
+  json["days"][0]["hours"][1]["precipprob"] = 101;
+  assert(!readWeather(json.as<JsonVariantConst>(), weather));
+  assert(weather.snowProbability == 0); // Invalid updates leave last good data alone.
+  json["days"][0]["hours"][1]["precipprob"] = -1;
+  assert(!readWeather(json.as<JsonVariantConst>(), weather));
+  json["days"][0]["hours"][1]["precipprob"] = "75";
+  assert(!readWeather(json.as<JsonVariantConst>(), weather));
+  json["days"][0]["hours"][1]["precipprob"] = 75;
+  json["days"][0]["hours"][1]["preciptype"] = "snow";
+  assert(!readWeather(json.as<JsonVariantConst>(), weather));
+  json["days"][0]["hours"][1]["preciptype"].clear();
+  json["days"][0]["hours"][1]["preciptype"][0] = 42;
+  assert(!readWeather(json.as<JsonVariantConst>(), weather));
+
+  json["days"][0]["hours"].clear();
+  assert(!readWeather(json.as<JsonVariantConst>(), weather));
+  json["days"][0].remove("hours");
+  assert(!readWeather(json.as<JsonVariantConst>(), weather));
+  json["days"][0]["hours"] = "snow";
+  assert(!readWeather(json.as<JsonVariantConst>(), weather));
+  json["days"][0]["hours"].clear();
+  json["days"][0]["hours"][0] = 42;
+  assert(!readWeather(json.as<JsonVariantConst>(), weather));
+
+  // Keep all 25 hours on a daylight-saving fall-back day through the actual
+  // production JSON filter, including snow late in the day and extra fields.
+  json["days"][0]["hours"].clear();
+  for (int hour = 0; hour < 25; ++hour) {
+    auto item = json["days"][0]["hours"][hour];
+    item["precipprob"] = hour == 24 ? 80 : 0;
+    if (hour == 24) item["preciptype"][0] = "snow";
+    item["temp"] = 28;
+    item["datetime"] = "23:00:00";
+  }
+  JsonDocument filter;
+  configureWeatherFilter(filter);
+  std::string serialized;
+  serializeJson(json, serialized);
+  assert(serialized.size() < 8192);
+  JsonDocument filtered;
+  assert(!deserializeJson(filtered, serialized, DeserializationOption::Filter(filter),
+                          DeserializationOption::NestingLimit(8)));
+  assert(filtered["days"][0]["hours"].size() == 25);
+  assert(filtered["days"][0]["hours"][0]["temp"].isNull());
+  assert(readWeather(filtered.as<JsonVariantConst>(), weather));
+  assert(weather.snowProbability == 80);
+  assert(precipitationIcon(weather) == PrecipitationIcon::Snow);
+  json["days"][0]["hours"][25]["precipprob"] = 80;
+  assert(!readWeather(json.as<JsonVariantConst>(), weather));
+
+  weather.snowProbability = 50;
+  weather.precipitationProbability = 50;
+  assert(precipitationIcon(weather) == PrecipitationIcon::None);
+  weather.precipitationProbability = 50.1;
+  assert(precipitationIcon(weather) == PrecipitationIcon::Rain);
+  weather.snowProbability = 50.1;
+  assert(precipitationIcon(weather) == PrecipitationIcon::Snow);
 }
 
 void expectLocalTime(time_t utc, int month, int day, int hour, int minute, bool dst) {
@@ -135,6 +220,7 @@ void testRetries() {
 int main() {
   testConfig();
   testWeather();
+  testSnowForecast();
   testTimeZones();
   testRetries();
   std::cout << "Configuration, weather, timezone and retry regression tests passed.\n";

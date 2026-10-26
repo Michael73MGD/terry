@@ -6,12 +6,14 @@
 #include <freertos/queue.h>
 #include <freertos/task.h>
 #include <time.h>
+#include <memory>
+#include <new>
 #include "Weather.h"
 
 namespace {
 QueueHandle_t requests = nullptr;
 QueueHandle_t results = nullptr;
-constexpr size_t MAX_RESPONSE_BYTES = 4096;
+constexpr size_t MAX_RESPONSE_BYTES = 8192;
 
 // HTTPClient decodes chunked responses into this bounded sink.
 class ResponseBody : public Stream {
@@ -53,8 +55,8 @@ WeatherResult fetchWeather(const WeatherRequest &request) {
   http.setReuse(false);
   const String endpoint =
     String("https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/") +
-    request.config.zipCode + ",US/today?unitGroup=us&include=current,days" +
-    "&elements=datetime,temp,precipprob&contentType=json&key=" + request.config.apiKey;
+    request.config.zipCode + ",US/today?unitGroup=us&include=current,days,hours" +
+    "&elements=datetime,temp,precipprob,preciptype&contentType=json&key=" + request.config.apiKey;
   if (!http.begin(client, endpoint)) return result;
 
   result.httpCode = http.GET();
@@ -70,9 +72,15 @@ WeatherResult fetchWeather(const WeatherRequest &request) {
     return result;
   }
 
-  ResponseBody body;
+  // Hourly forecasts need a larger bounded body. Keep it off the task stack
+  // so TLS processing still has the same amount of stack available.
+  std::unique_ptr<ResponseBody> body(new (std::nothrow) ResponseBody);
+  if (!body) {
+    http.end();
+    return result;
+  }
   const int bodyLength = http.getSize();
-  if (bodyLength > static_cast<int>(MAX_RESPONSE_BYTES) || http.writeToStream(&body) < 0) {
+  if (bodyLength > static_cast<int>(MAX_RESPONSE_BYTES) || http.writeToStream(body.get()) < 0) {
     http.end();
     result.status = WeatherStatus::InvalidResponse;
     return result;
@@ -80,11 +88,9 @@ WeatherResult fetchWeather(const WeatherRequest &request) {
   http.end();
 
   JsonDocument filter;
-  filter["currentConditions"]["temp"] = true;
-  filter["days"][0]["precipprob"] = true;
-  filter["days"][0]["datetime"] = true;
+  configureWeatherFilter(filter);
   JsonDocument json;
-  const auto error = deserializeJson(json, body.buffer, body.length,
+  const auto error = deserializeJson(json, body->buffer, body->length,
                                     DeserializationOption::Filter(filter),
                                     DeserializationOption::NestingLimit(8));
   result.status = !error && readWeather(json.as<JsonVariantConst>(), result.data)

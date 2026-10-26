@@ -101,19 +101,21 @@ void formatClock(const struct tm &timeinfo) {
   const bool usableWeather = haveWeather && millis() - weatherReceived < WEATHER_MAX_AGE;
   char today[11];
   strftime(today, sizeof(today), "%Y-%m-%d", &timeinfo);
-  // Hide yesterday's umbrella after midnight in the configured timezone.
-  const bool rainy = usableWeather && strcmp(today, weather.date) == 0 &&
-                     weather.precipitationProbability > 50;
+  // A single icon: snow overrides rain, and yesterday's forecast shows neither.
+  const PrecipitationIcon icon = usableWeather && strcmp(today, weather.date) == 0
+                                  ? precipitationIcon(weather) : PrecipitationIcon::None;
+  const char *symbol = icon == PrecipitationIcon::Snow ? "}" : "{";
+  const bool hasIcon = icon != PrecipitationIcon::None;
   if (usableWeather) {
     snprintf(displayText, sizeof(displayText), "%s%s%.0f%s", clock,
-             rainy ? "{" : "  ", weather.temperature, rainy ? "" : "|");
+             hasIcon ? symbol : "  ", weather.temperature, hasIcon ? "" : "|");
     if (textFits(displayText)) return;
     snprintf(displayText, sizeof(displayText), "%s%s%.0f", clock,
-             rainy ? "{" : " ", weather.temperature);
+             hasIcon ? symbol : " ", weather.temperature);
     if (textFits(displayText)) return;
     if (!config.use24Hour && clock[0] == '0') memmove(clock, clock + 1, strlen(clock));
     snprintf(displayText, sizeof(displayText), "%s%s%.0f", clock,
-             rainy ? "{" : "", weather.temperature);
+             hasIcon ? symbol : "", weather.temperature);
     if (textFits(displayText)) return;
   }
   snprintf(displayText, sizeof(displayText), "%s", clock);
@@ -251,8 +253,8 @@ void updateWeather() {
         reportedWeatherFailure = false;
         refreshDisplay = true;
         if (configurationPersisted) markSetupRequired(false);
-        Serial.printf("Weather updated: %.1f F, precipitation probability %.0f%%\n",
-                      weather.temperature, weather.precipitationProbability);
+        Serial.printf("Weather updated: %.1f F, precipitation %.0f%%, snow-hour precipitation %.0f%%\n",
+                      weather.temperature, weather.precipitationProbability, weather.snowProbability);
       } else {
         Serial.printf("Weather update failed: status=%u, HTTP=%d\n",
                       static_cast<unsigned int>(result.status), result.httpCode);

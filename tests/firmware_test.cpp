@@ -325,6 +325,34 @@ int main(int argc, char **argv) {
   timeinfo.tm_mday = 25;
   haveWeather = true;
   weatherReceived = millis();
+  config.use24Hour = true;
+  timeinfo.tm_hour = 12;
+  timeinfo.tm_min = 34;
+  weather.temperature = 28;
+  snprintf(weather.date, sizeof(weather.date), "2026-10-25");
+  weather.precipitationProbability = 90;
+  weather.snowProbability = 80;
+  formatClock(timeinfo);
+  assert(strchr(displayText, '}') && !strchr(displayText, '{')); // One snow icon when rain and snow both qualify.
+  const uint8_t *snowGlyph = mFactory;
+  for (int c = 0; c < '}'; ++c) snowGlyph += *snowGlyph + 1;
+  const uint8_t expectedSnowflake[] = {5, 42, 28, 62, 28, 42};
+  assert(memcmp(snowGlyph, expectedSnowflake, sizeof(expectedSnowflake)) == 0);
+  weather.snowProbability = 50;
+  formatClock(timeinfo);
+  assert(strchr(displayText, '{') && !strchr(displayText, '}')); // Exactly 50% snow does not override rain.
+  weather.precipitationProbability = 50;
+  formatClock(timeinfo);
+  assert(!strchr(displayText, '{') && !strchr(displayText, '}'));
+  weather.snowProbability = 80;
+  timeinfo.tm_mday = 26;
+  formatClock(timeinfo);
+  assert(!strchr(displayText, '{') && !strchr(displayText, '}')); // Never show yesterday's snow.
+  timeinfo.tm_mday = 25;
+  fakeMillis += WEATHER_MAX_AGE;
+  formatClock(timeinfo);
+  assert(!strchr(displayText, '{') && !strchr(displayText, '}')); // Stale snow is hidden too.
+  weatherReceived = millis();
   for (bool use24Hour : {false, true}) {
     config.use24Hour = use24Hour;
     for (int hour = 0; hour < 24; ++hour) {
@@ -335,13 +363,16 @@ int main(int argc, char **argv) {
           weather.temperature = temperature;
           for (float probability : {0.0f, 100.0f}) {
             weather.precipitationProbability = probability;
-            formatClock(timeinfo);
-            assert(textFits(displayText));
-            char expectedClock[10];
-            strftime(expectedClock, sizeof(expectedClock), use24Hour ? "%H:%M" : "%I:%M", &timeinfo);
-            // 24-hour midnight/early hours must retain their leading zero even
-            // when the temperature is too wide and weather has to be omitted.
-            if (use24Hour) assert(strncmp(displayText, expectedClock, 5) == 0);
+            for (float snowProbability : {0.0f, 100.0f}) {
+              weather.snowProbability = snowProbability;
+              formatClock(timeinfo);
+              assert(textFits(displayText));
+              char expectedClock[10];
+              strftime(expectedClock, sizeof(expectedClock), use24Hour ? "%H:%M" : "%I:%M", &timeinfo);
+              // 24-hour midnight/early hours must retain their leading zero even
+              // when the temperature is too wide and weather has to be omitted.
+              if (use24Hour) assert(strncmp(displayText, expectedClock, 5) == 0);
+            }
           }
         }
       }

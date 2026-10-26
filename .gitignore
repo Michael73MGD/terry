@@ -1,1 +1,3 @@
 apikey
+.DS_Store
+build/
